@@ -18,7 +18,7 @@ app.post('/calculate', async (req, res) => {
     }
 
     try {
-        const response = await axios.post('http://localhost:7000/sum', {
+        const response = await axios.post('http://container2:7000/sum', {
             file,
             product
         });
