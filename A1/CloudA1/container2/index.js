@@ -79,6 +79,8 @@ app.post('/sum', (req, res) => {
                     file,
                     error: 'Input file not in CSV format.'
                 });
+            } else {
+                console.log('CSV format verified');
             }
         });
 });
