@@ -11,4 +11,4 @@ services:
     ports:
       - 7000:7000
     volumes:
-      - .:/Users/mayankpandey/IdeaProjects/mpandey/mpandey/A1
+      - .:/Users/mayankpandey/IdeaProjects/mpandey/A1

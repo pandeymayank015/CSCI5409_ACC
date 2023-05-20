@@ -28,32 +28,41 @@ app.post('/sum', (req, res) => {
     }
 
     let sum = 0;
-    let isCSVFormat = true;
-
-    const delimiter = ',';
+    let isCSVFormat = false;
 
     fs.createReadStream(filePath)
-        .pipe(csv({ delimiter }))
+        .pipe(csv())
         .on('data', (data) => {
-            if (data.product && data.amount) {
-                if (data.product === product) {
-                    sum += parseInt(data.amount);
-                }
-            } else {
+            if (!data.product || !data.amount) {
                 console.log('Invalid CSV format');
                 isCSVFormat = false;
-                return res.json({
-                    file,
-                    error: 'Input file not in CSV format.'
-                });
+                return;
+            }
+
+            isCSVFormat = true;
+
+            if (data.product === product) {
+                sum += parseInt(data.amount);
             }
         })
         .on('end', () => {
             console.log('Calculation completed successfully');
             if (isCSVFormat) {
+                if (sum === 0) {
+                    return res.json({
+                        file,
+                        error: 'Input file not in CSV format.'
+                    });
+                } else {
+                    return res.json({
+                        file,
+                        sum
+                    });
+                }
+            } else {
                 return res.json({
                     file,
-                    sum
+                    error: 'Input file not in CSV format.'
                 });
             }
         })
