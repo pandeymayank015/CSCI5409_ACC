@@ -7,8 +7,6 @@ const PORT = 7000;
 
 app.use(express.json());
 
-const csvFormatRegex = /^([^,]+,[^,]+,)*[^,]+,[^,]+$/;
-
 app.post('/sum', (req, res) => {
     const { file, product } = req.body;
 
@@ -20,7 +18,7 @@ app.post('/sum', (req, res) => {
         });
     }
 
-    const filePath = `/Users/mayankpandey/IdeaProjects/mpandey/mpandey/A1/${file}`;
+    const filePath = `/Users/mayankpandey/IdeaProjects/mpandey/A1/${file}`;
     if (!fs.existsSync(filePath)) {
         console.log('File not found:', filePath);
         return res.json({
@@ -29,59 +27,42 @@ app.post('/sum', (req, res) => {
         });
     }
 
-    const results = [];
     let sum = 0;
     let isCSVFormat = true;
-    let firstChunk = '';
 
-    const fileStream = fs.createReadStream(filePath);
+    const delimiter = ',';
 
-    fileStream.on('data', (chunk) => {
-        firstChunk += chunk.toString('utf-8');
-    });
-
-    fileStream
-        .pipe(csv())
+    fs.createReadStream(filePath)
+        .pipe(csv({ delimiter }))
         .on('data', (data) => {
-            if (data.product === product) {
-                sum += parseInt(data.amount);
-            }
-        })
-        .on('end', () => {
-            console.log('Calculation completed successfully');
-            if (isCSVFormat) {
-                if (sum === 0) {
-                    return res.json({
-                        file,
-                        error: 'Input file not in CSV format.'
-                    });
-                } else {
-                    return res.json({
-                        file,
-                        sum
-                    });
+            if (data.product && data.amount) {
+                if (data.product === product) {
+                    sum += parseInt(data.amount);
                 }
-            }
-        })
-        .on('error', (error) => {
-            console.log('Error parsing CSV file:', error.message);
-            isCSVFormat = false;
-            return res.json({
-                file,
-                error: 'Input file not in CSV format.'
-            });
-        })
-        .on('finish', () => {
-            if (!csvFormatRegex.test(firstChunk)) {
-                console.log('Input file not in CSV format');
+            } else {
+                console.log('Invalid CSV format');
                 isCSVFormat = false;
                 return res.json({
                     file,
                     error: 'Input file not in CSV format.'
                 });
-            } else {
-                console.log('CSV format verified');
             }
+        })
+        .on('end', () => {
+            console.log('Calculation completed successfully');
+            if (isCSVFormat) {
+                return res.json({
+                    file,
+                    sum
+                });
+            }
+        })
+        .on('error', (error) => {
+            console.log('Error parsing CSV file:', error.message);
+            return res.json({
+                file,
+                error: 'Input file not in CSV format.'
+            });
         });
 });
 
