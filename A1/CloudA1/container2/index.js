@@ -18,7 +18,7 @@ app.post('/sum', (req, res) => {
         });
     }
 
-    const filePath = `./A1/${file}`;
+    const filePath = `/app/data/${file}`;
     if (!fs.existsSync(filePath)) {
         console.log('File not found:', filePath);
         return res.json({

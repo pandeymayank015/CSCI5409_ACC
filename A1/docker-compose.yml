@@ -1,14 +1,14 @@
-version: '3.9'
-
 services:
   container1:
     image: mpandey9/container1:latest
+    container_name: container1
     ports:
       - 6000:6000
 
   container2:
     image: mpandey9/container2:latest
+    container_name: container2
     ports:
       - 7000:7000
     volumes:
-      - .:/A1
+      - .:/app/data
