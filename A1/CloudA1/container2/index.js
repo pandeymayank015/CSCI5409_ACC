@@ -1,6 +1,7 @@
 const express = require('express');
 const csv = require('csv-parser');
 const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const PORT = 7000;
@@ -17,10 +18,11 @@ app.post('/sum', (req, res) => {
             error: 'Invalid JSON input.'
         });
     }
-
-    const filePath = `/app/data/${file}`;
+    const hostDirectory = '/dockerVolume';
+    const filePath = path.join(hostDirectory, file);
     if (!fs.existsSync(filePath)) {
         console.log('File not found:', filePath);
+
         return res.json({
             file,
             error: 'File not found.'
