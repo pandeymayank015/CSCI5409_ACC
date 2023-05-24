@@ -19,3 +19,6 @@ services:
       - 7000:7000
     volumes:
       - ./:/dockerVolume
+volumes:
+      dockerVolume:
+        external: false
