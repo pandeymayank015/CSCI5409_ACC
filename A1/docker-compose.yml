@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   container1:
     image: mpandey9/container1:latest
