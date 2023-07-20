@@ -1,4 +1,8 @@
 import React, { useState } from 'react';
+import Typography from "@mui/material/Typography";
+import TextField from "@mui/material/TextField";
+import Button from "@mui/material/Button";
+import Box from "@mui/material/Box";
 import axios from 'axios';
 import { setUserSession } from './service/AuthService.js';
 
@@ -50,16 +54,26 @@ const Login = (props) => {
 
     return (
         <div>
-            <h2>Login</h2>
-            <div>
-                <label>Email:</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <div>
-                <label>Password:</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-            </div>
-            <button onClick={handleLogin}>Login</button>
+            <Typography variant="h5" gutterBottom>Login</Typography>
+            <Box display="flex" flexDirection="column">
+                <TextField
+                    label="Email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    variant="outlined"
+                    margin="normal"
+                />
+                <TextField
+                    label="Password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    variant="outlined"
+                    margin="normal"
+                />
+                <Button variant="contained" color="primary" onClick={handleLogin}>Login</Button>
+            </Box>
         </div>
     );
 };

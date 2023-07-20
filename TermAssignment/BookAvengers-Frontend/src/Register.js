@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import Box from "@mui/material/Box";
 const Register = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -47,20 +50,34 @@ const Register = () => {
 
     return (
         <div>
-            <h2>Register</h2>
-            <div>
-                <label>Name:</label>
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div>
-                <label>Email:</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <div>
-                <label>Password:</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-            </div>
-            <button onClick={handleRegister}>Register</button>
+            <Typography variant="h5" gutterBottom>Register</Typography>
+            <Box display="flex" flexDirection="column">
+                <TextField
+                    label="Name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    variant="outlined"
+                    margin="normal"
+                />
+                <TextField
+                    label="Email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    variant="outlined"
+                    margin="normal"
+                />
+                <TextField
+                    label="Password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    variant="outlined"
+                    margin="normal"
+                />
+                <Button variant="contained" color="primary" onClick={handleRegister}>Register</Button>
+            </Box>
         </div>
     );
 };

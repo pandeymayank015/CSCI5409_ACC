@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {resetUserSession, getToken, getUser} from './service/AuthService.js';
-
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import Box from "@mui/material/Box";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemText from "@mui/material/ListItemText";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
 const PremiumContent = (props) => {
     const [books, setBooks] = useState([]);
     const [newBook, setNewBook] = useState('');
@@ -127,46 +137,87 @@ const PremiumContent = (props) => {
     };
 
     return (
-        <div>
-            Hello {email}!
-            <input type="button" value="Logout" onClick={logoutHandler} />
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center',  padding: '20px' }}>
+            <div style={{ maxWidth: '600px', width: '100%' }}>
+                <Typography variant="h4" gutterBottom>
+                    Hello {email}!
+                </Typography>
+                <Button variant="contained" color="primary" onClick={logoutHandler}>
+                    Logout
+                </Button>
 
-            <h1>Book Library</h1>
+                <Typography variant="h5" gutterBottom style={{ marginTop: '20px' }}>
+                    Book Library
+                </Typography>
 
-            <h2>Books</h2>
-            <ul>
-                {books.map((book) => (
-                    <li key={book.id}>
-                        {book.name} - {book.status}
-                        <button onClick={() => handleDeleteBook(book.id)}>Delete</button>
-                    </li>
-                ))}
-            </ul>
-
-            <h2>Add Book</h2>
-            <input type="text" value={newBook} onChange={(e) => setNewBook(e.target.value)} />
-            <button onClick={handleAddBook}>Add Book</button>
-
-            <div>
-                <h2>Update Book Status</h2>
-                <select value={selectedBook} onChange={(e) => setSelectedBook(e.target.value)}>
-                    <option value="">Select a book</option>
+                <Typography variant="h6" gutterBottom>
+                    Books
+                </Typography>
+                <List>
                     {books.map((book) => (
-                        <option key={book.id} value={book.id}>
-                            {book.name}
-                        </option>
+                        <ListItem key={book.id}>
+                            <ListItemText primary={`${book.name} - ${book.status}`} />
+                            <Button color="secondary" onClick={() => handleDeleteBook(book.id)}>
+                                Delete
+                            </Button>
+                        </ListItem>
                     ))}
-                </select>
-                <input
-                    type="text"
-                    value={bookStatus}
-                    onChange={(e) => setBookStatus(e.target.value)}
-                    placeholder="Enter new status"
-                />
-                <button onClick={handleUpdateStatus}>Update Status</button>
+                </List>
+
+                <Typography variant="h6" gutterBottom style={{ marginTop: '20px' }}>
+                    Add Book
+                </Typography>
+                <Box display="flex" alignItems="center" style={{ marginBottom: '20px' }}>
+                    <TextField
+                        label="Book Name"
+                        value={newBook}
+                        onChange={(e) => setNewBook(e.target.value)}
+                        variant="outlined"
+                    />
+                    <Button variant="contained" color="primary" onClick={handleAddBook} style={{ marginLeft: '10px' }}>
+                        Add Book
+                    </Button>
+                </Box>
+
+                <Typography variant="h6" gutterBottom>
+                    Update Book Status
+                </Typography>
+                <FormControl variant="outlined" style={{ minWidth: '200px', marginBottom: '20px' }}>
+                    <InputLabel>Select a book</InputLabel>
+                    <Select
+                        value={selectedBook}
+                        onChange={(e) => setSelectedBook(e.target.value)}
+                        label="Select a book"
+                    >
+                        <MenuItem value="">Select a book</MenuItem>
+                        {books.map((book) => (
+                            <MenuItem key={book.id} value={book.id}>
+                                {book.name}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+                <Box display="flex" alignItems="center">
+                    <FormControl variant="outlined" style={{ marginRight: '10px', minWidth: '200px' }}>
+                        <InputLabel>Select new status</InputLabel>
+                        <Select
+                            value={bookStatus}
+                            onChange={(e) => setBookStatus(e.target.value)}
+                            label="Select new status"
+                        >
+                            <MenuItem value="In-Progress">In-Progress</MenuItem>
+                            <MenuItem value="Not Started">Not Started</MenuItem>
+                            <MenuItem value="Finished">Finished</MenuItem>
+                        </Select>
+                    </FormControl>
+                    <Button variant="contained" color="primary" onClick={handleUpdateStatus}>
+                        Update Status
+                    </Button>
+                </Box>
+
             </div>
         </div>
-    );
+);
 };
 
 export default PremiumContent;
