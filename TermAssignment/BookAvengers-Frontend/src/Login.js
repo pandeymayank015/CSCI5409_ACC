@@ -35,6 +35,7 @@ const Login = (props) => {
                 const { user, token } = response.data;
                 setUserSession(user, token); // Set user session using the AuthService
                 console.log('Generated token:', token);
+                localStorage.setItem('email', email);
                 props.history.push('/premium-content')
                 // Perform any additional actions upon successful login
             } else {
