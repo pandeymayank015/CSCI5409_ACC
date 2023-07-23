@@ -6,11 +6,10 @@ const util = require ('../utils/util');
 const auth = require ('../utils/auth');
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 const dynamodbTableName = 'bookavengers-books';
-const sns = new AWS.SNS();
+const sqs = new AWS.SQS();
 const getBook = async (id, token) => {
     try {
         console.log('Token received:', token);
-
         // Extract the email from the token dynamically
         const decodedToken = jwt.decode(token.split(' ')[1]);
         const email = decodedToken.email;
@@ -27,8 +26,7 @@ const getBook = async (id, token) => {
         if (!book || book.email !== email) {
             return util.buildResponse(404, { message: 'Book not found or unauthorized access.' });
         }
-        const snsMessage = `User " ${email} " has added a new book to the library`;
-        publishSNSMessage(snsMessage);
+
         return util.buildResponse(200, book);
     } catch (error) {
         console.error('Do your custom error handling here. I am just gonna log it: ', error);
@@ -138,8 +136,17 @@ async function saveBook(requestBody, token) {
             Message: 'SUCCESS',
             Item: book,
         };
-        const snsMessage = `User ${email} has added a new book ${book.name} to the library`;
-        publishSNSMessage(snsMessage);
+        const sqsParams = {
+            MessageBody: JSON.stringify({
+                operation: 'save',
+                email: email,
+                book: book
+            }),
+            QueueUrl: 'https://sqs.us-east-1.amazonaws.com/448001105130/SaveQueue',
+        };
+
+        // Send message to the SQS queue
+        await sqs.sendMessage(sqsParams).promise();
         return util.buildResponse(200, body);
     } catch (error) {
         console.error('Error adding book:', error);
@@ -200,9 +207,14 @@ async function modifyBook(id, updateKey, updateValue, token) {
 
 async function deleteBook(id, token) {
 
+    const bookResponse = await getBook(id, token); // Fetch the book before deleting
+    const book = JSON.parse(bookResponse.body);
+
+    // Add logging here to see what book is returned
+    console.log('Book returned from getBook: ', book);
+
     console.log('Token received:', token);
 
-    // Extract the email from the token dynamically
     const decodedToken = jwt.decode(token.split(' ')[1]);
     const email = decodedToken.email;
     console.log('Email associated with the token:', email);
@@ -217,37 +229,45 @@ async function deleteBook(id, token) {
         return util.buildResponse(401, { message: 'Invalid token.' });
     }
 
-    const params = {
-        TableName: dynamodbTableName,
-        Key: {
-            id: id
-        },
-        ReturnValues: 'ALL_OLD'
-    };
-    return await dynamodb
-    .delete(params)
-    .promise()
-    .then((response) => {
+    try {
+
+        const params = {
+            TableName: dynamodbTableName,
+            Key: {
+                id: id,
+            },
+            ReturnValues: 'ALL_OLD'
+        };
+
+        const response = await dynamodb.delete(params).promise();
+
         const body = {
             Operation: 'DELETE',
             Message: 'SUCCESS',
             Item: response
         };
 
-        getBook(id).then((bookResponse) => {
-            if (bookResponse && bookResponse.name) {
-                const bookName = bookResponse.name;
-                const snsMessage = `User ${email} has added a new book " ${bookName} " to the library`;
-                publishSNSMessage(snsMessage);
-            }
-        });
+        const sqsParams = {
+            MessageBody: JSON.stringify({
+                operation: 'delete',
+                email: email,
+                bookId: id,
+                bookName: book.name,
+            }),
+            QueueUrl: 'https://sqs.us-east-1.amazonaws.com/448001105130/DeleteQueue',
+        };
+
+        await sqs.sendMessage(sqsParams).promise();
 
         return util.buildResponse(200, body);
-    })
-    .catch((error) => {
+    } catch (error) {
         console.error('Do your custom error handling here. I am just gonna log it: ', error);
-    });
+        return util.buildResponse(500, { message: 'An error occurred while deleting the book.' });
+    }
 }
+
+
+
 
 const generateUniqueId = () => {
     const timestamp = Date.now().toString(36);
@@ -255,19 +275,7 @@ const generateUniqueId = () => {
     return timestamp + randomPart;
 };
 
-function publishSNSMessage(message) {
-    const params = {
-        Message: message,
-        TopicArn: 'arn:aws:sns:us-east-1:448001105130:LibraryNotificationsTopic' // Replace with the ARN of the "LibraryNotificationsTopic"
-    };
-    sns.publish(params, (err, data) => {
-        if (err) {
-            console.error('Error publishing SNS message:', err);
-        } else {
-            console.log('SNS message published:', data);
-        }
-    });
-}
+
 
 module.exports.getBook = getBook;
 module.exports.getBooks = getBooks;
