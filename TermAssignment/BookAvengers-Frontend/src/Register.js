@@ -4,6 +4,8 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import Box from "@mui/material/Box";
+const backendUrl = process.env.REACT_APP_BACKEND_URL;
+
 const Register = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -15,12 +17,9 @@ const Register = () => {
             alert('All fields are required.');
             return;
         }
-
-        const apiKey = 'z4RHzesbGa7yo0IEGP1n18DuLtfnzEdn6N1QwvyV';
-
         try {
             const response = await axios.post(
-                'https://0i2oilda27.execute-api.us-east-1.amazonaws.com/prod/register',
+                `${backendUrl}/register`,
                 {
                     name,
                     email,
@@ -28,8 +27,7 @@ const Register = () => {
                 },
                 {
                     headers: {
-                        'Content-Type': 'application/json',
-                        'x-api-key': apiKey,
+                        'Content-Type': 'application/json'
                     },
                 }
             );
@@ -37,7 +35,7 @@ const Register = () => {
             if (response.status === 200) {
                 // Registration successful
                 alert(`Registration successful for user with email: ${email}`);
-                // Perform any additional actions upon successful registration
+                sessionStorage.setItem('user', JSON.stringify({ email }));
             } else {
                 // Registration failed
                 alert(response.data.message);

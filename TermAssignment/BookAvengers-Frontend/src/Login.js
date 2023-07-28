@@ -4,7 +4,7 @@ import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import axios from 'axios';
-import { setUserSession } from './service/AuthService.js';
+const backendUrl = process.env.REACT_APP_BACKEND_URL;
 
 const Login = (props) => {
     const [email, setEmail] = useState('');
@@ -16,32 +16,17 @@ const Login = (props) => {
             alert('Username or password is required.');
             return;
         }
-
-        const apiKey = 'z4RHzesbGa7yo0IEGP1n18DuLtfnzEdn6N1QwvyV';
-
         try {
             const response = await axios.post(
-                'https://0i2oilda27.execute-api.us-east-1.amazonaws.com/prod/login',
-                {
-                    email,
-                    password,
-                },
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-api-key': apiKey,
-                    },
-                }
+                `${backendUrl}/login`,
+                { email, password },
+                { headers: { 'Content-Type': 'application/json' } }
             );
 
             if (response.status === 200) {
                 // Login successful
-                const { user, token } = response.data;
-                setUserSession(user, token); // Set user session using the AuthService
-                console.log('Generated token:', token);
-                localStorage.setItem('email', email);
-                props.history.push('/premium-content')
-                // Perform any additional actions upon successful login
+                sessionStorage.setItem('user', JSON.stringify({ email }));
+                props.history.push('/premium-content');
             } else {
                 // Login failed
                 alert(response.data.message);

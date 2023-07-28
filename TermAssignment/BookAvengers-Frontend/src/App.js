@@ -3,9 +3,6 @@ import Home from "./Home";
 import Register from "./Register";
 import Login from "./Login";
 import PremiumContent from "./PremiumContent";
-import { useEffect, useState } from "react";
-import { getUser, getToken, setUserSession, resetUserSession } from "./service/AuthService";
-import axios from "axios";
 import AppBar from "@mui/material/AppBar";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
@@ -14,37 +11,7 @@ import Container from "@mui/material/Container";
 import PublicRoute from "./routes/PublicRoute";
 import PrivateRoute from "./routes/PrivateRoute";
 
-const verifyTokenAPIURL = "https://0i2oilda27.execute-api.us-east-1.amazonaws.com/prod/verify"
 function App() {
-    const [isAuthenticating, setAuthenticating] = useState(true);
-    useEffect(()=>{
-        const token=getToken();
-        if (token==='undefined'|| token === undefined || token === null || !token){
-            return;
-        }
-        const requestConfig = {
-            headers: {
-                'x-api-key': 'z4RHzesbGa7yo0IEGP1n18DuLtfnzEdn6N1QwvyV',
-            }
-        }
-        const requestBody= {
-            user: getUser(),
-            token: token
-        }
-        axios.post(verifyTokenAPIURL,requestBody, requestConfig).then(response =>{
-            setUserSession(response.data.user, response.data.token);
-            setAuthenticating(false);
-        }).catch(()=>{
-                resetUserSession();
-                setAuthenticating(false);
-
-            }
-        )
-    },[]);
-    const token = getToken();
-    if (isAuthenticating && token){
-        return <div>Authenticating ...</div>
-    }
     return (
         <div className="App">
             <BrowserRouter>

@@ -1,4 +1,5 @@
 import axios from 'axios';
+const backendUrl = process.env.REACT_APP_BACKEND_URL;
 
 export const getUser = () => {
     const user = sessionStorage.getItem('user');
@@ -24,10 +25,9 @@ export const resetUserSession = () => {
 };
 
 export const axiosInstance = axios.create({
-    baseURL: 'https://0i2oilda27.execute-api.us-east-1.amazonaws.com/prod',
+    baseURL: `${backendUrl}/verify`,
     headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': 'z4RHzesbGa7yo0IEGP1n18DuLtfnzEdn6N1QwvyV',
+        'Content-Type': 'application/json'
     },
 });
 

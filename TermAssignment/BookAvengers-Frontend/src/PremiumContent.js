@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import {resetUserSession, getToken, getUser} from './service/AuthService.js';
+import { resetUserSession} from './service/AuthService.js';
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
@@ -12,55 +12,52 @@ import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
+const backendUrl = process.env.REACT_APP_BACKEND_URL;
+
 const PremiumContent = (props) => {
+    const email = JSON.parse(sessionStorage.getItem('user'))?.email || '';
+    
+    useEffect(() => {
+        // Store the email in sessionStorage when the component mounts
+        sessionStorage.setItem('email', email);
+    }, []);
     const [books, setBooks] = useState([]);
     const [newBook, setNewBook] = useState('');
     const [selectedBook, setSelectedBook] = useState('');
     const [bookStatus, setBookStatus] = useState('');
-    const email = JSON.parse(sessionStorage.getItem('user'))?.email || '';
 
     const fetchBooks = async () => {
         try {
-            const token = getToken();
-            const user = getUser();
-            console.log('Generated token:', token); // Log the generated token
-            console.log('email:', user.email);
-            const response = await axios.get('https://0i2oilda27.execute-api.us-east-1.amazonaws.com/prod/books', {
-                headers: {  'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`, // Use the fetched token here
-                },
-            });
-            setBooks(response.data.books);
+          const response = await axios.get(`${backendUrl}/books`, {
+            headers: {
+              'Content-Type': 'application/json',            },
+          });
+          setBooks(response.data.books);
         } catch (error) {
-            console.error('Error fetching books:', error);
+          console.error('Error fetching books:', error);
         }
-    };
-
-    useEffect(() => {
+      };
+      
+      useEffect(() => {
         fetchBooks();
-    }, []); // Empty dependency array to run the effect only once
+      }, []); // Empty dependency array to run the effect only once
 
 
     const handleAddBook = async () => {
         try {
-            // Fetch the token using the AuthService getToken() function
-            const token = getToken();
-            const user = getUser();
-            console.log('Generated token:', token); // Log the generated token
-            console.log('email:', user.email);
             const response = await axios.post(
-                'https://0i2oilda27.execute-api.us-east-1.amazonaws.com/prod/book',
+                `${backendUrl}/book`,
                 {
-                    name: newBook,
-                    status: 'Available',
+                  name: newBook,
+                  status: 'Available',
+                  userEmail: email,
                 },
                 {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`, // Use the fetched token here
-                    },
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
                 }
-            );
+              );
 
             if (response.status === 200) {
                 // Book addition successful
@@ -79,12 +76,8 @@ const PremiumContent = (props) => {
 
     const handleUpdateStatus = async () => {
         try {
-            const token = getToken();
-            const user = getUser();
-            console.log('Generated token:', token); // Log the generated token
-            console.log('email:', user.email);
             const response = await axios.patch(
-                `https://0i2oilda27.execute-api.us-east-1.amazonaws.com/prod/book`,
+                `${backendUrl}/book`,
                 {
                     id: selectedBook,
                     updateKey: 'status',
@@ -93,7 +86,6 @@ const PremiumContent = (props) => {
                 {
                     headers: {
                         'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`,
                     },
                 }
             );
@@ -111,25 +103,22 @@ const PremiumContent = (props) => {
 
     const handleDeleteBook = async (bookId) => {
         try {
-            const token = getToken();
-            const user = getUser();
-            console.log('Generated token:', token); // Log the generated token
-            console.log('email:', user.email);
             await axios.delete(
-                'https://0i2oilda27.execute-api.us-east-1.amazonaws.com/prod/book',
+                `${backendUrl}/book?id=${bookId}&userEmail=${email}`,
                 {
-                    data: { id: bookId },
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`,
-                    },
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
                 }
-            );
-            setBooks((prevBooks) => prevBooks.filter((book) => book.id !== bookId));
+              );
+          
+          // Book deletion successful
+          setBooks(prevBooks => prevBooks.filter(book => book.id !== bookId));
         } catch (error) {
-            console.error('Error deleting book:', error);
+          console.error('Error deleting book:', error);
+          // Handle error if necessary
         }
-    };
+      };
 
     const logoutHandler = () => {
         resetUserSession();
@@ -137,11 +126,10 @@ const PremiumContent = (props) => {
     };
 
     return (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center',  padding: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
             <div style={{ maxWidth: '600px', width: '100%' }}>
-                <Typography variant="h4" gutterBottom>
-                    Hello {email}!
-                </Typography>
+            <Typography variant="h4" gutterBottom>Hello {email}!</Typography>
+
                 <Button variant="contained" color="primary" onClick={logoutHandler}>
                     Logout
                 </Button>
@@ -217,7 +205,7 @@ const PremiumContent = (props) => {
 
             </div>
         </div>
-);
+    );
 };
 
 export default PremiumContent;
