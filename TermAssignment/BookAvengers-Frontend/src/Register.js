@@ -4,7 +4,7 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import Box from "@mui/material/Box";
-const backendUrl = process.env.REACT_APP_BACKEND_URL;
+const backendUrl = process.env.REACT_APP_API_ENDPOINT;
 
 const Register = () => {
     const [name, setName] = useState('');
@@ -19,7 +19,7 @@ const Register = () => {
         }
         try {
             const response = await axios.post(
-                `${backendUrl}/register`,
+                `${process.env.REACT_APP_API_ENDPOINT}/prod/register`,
                 {
                     name,
                     email,
@@ -39,6 +39,7 @@ const Register = () => {
             } else {
                 // Registration failed
                 alert(response.data.message);
+                console.log("env variable:",`${process.env.REACT_APP_API_ENDPOINT}`);
             }
         } catch (error) {
             console.error('An error occurred during registration:', error);

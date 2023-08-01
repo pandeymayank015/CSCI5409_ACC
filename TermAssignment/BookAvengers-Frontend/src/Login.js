@@ -4,7 +4,7 @@ import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import axios from 'axios';
-const backendUrl = process.env.REACT_APP_BACKEND_URL;
+const backendUrl = process.env.REACT_APP_API_ENDPOINT;
 
 const Login = (props) => {
     const [email, setEmail] = useState('');
@@ -18,7 +18,7 @@ const Login = (props) => {
         }
         try {
             const response = await axios.post(
-                `${backendUrl}/login`,
+                `${process.env.REACT_APP_API_ENDPOINT}/prod/login`,
                 { email, password },
                 { headers: { 'Content-Type': 'application/json' } }
             );

@@ -12,7 +12,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
-const backendUrl = process.env.REACT_APP_BACKEND_URL;
+const backendUrl = process.env.REACT_APP_API_ENDPOINT;
 
 const PremiumContent = (props) => {
     const email = JSON.parse(sessionStorage.getItem('user'))?.email || '';
@@ -28,7 +28,7 @@ const PremiumContent = (props) => {
 
     const fetchBooks = async () => {
         try {
-          const response = await axios.get(`${backendUrl}/books`, {
+          const response = await axios.get(`${process.env.REACT_APP_API_ENDPOINT}/prod/books`, {
             headers: {
               'Content-Type': 'application/json',            },
           });
@@ -46,7 +46,7 @@ const PremiumContent = (props) => {
     const handleAddBook = async () => {
         try {
             const response = await axios.post(
-                `${backendUrl}/book`,
+                `${process.env.REACT_APP_API_ENDPOINT}/prod/book`,
                 {
                   name: newBook,
                   status: 'Available',
@@ -77,7 +77,7 @@ const PremiumContent = (props) => {
     const handleUpdateStatus = async () => {
         try {
             const response = await axios.patch(
-                `${backendUrl}/book`,
+                `${process.env.REACT_APP_API_ENDPOINT}/prod/book`,
                 {
                     id: selectedBook,
                     updateKey: 'status',
@@ -104,7 +104,7 @@ const PremiumContent = (props) => {
     const handleDeleteBook = async (bookId) => {
         try {
             await axios.delete(
-                `${backendUrl}/book?id=${bookId}&userEmail=${email}`,
+                `${process.env.REACT_APP_API_ENDPOINT}/prod/book?id=${bookId}&userEmail=${email}`,
                 {
                   headers: {
                     'Content-Type': 'application/json',

@@ -1,449 +1,529 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: A complete API Gateway template
 Resources:
-
-  UsersDynamoDbTable:
+#---------------------------------------DynamoDb (Storage)--------------------------------------
+# users table creation
+  UserDynamoDBTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: "users"
-      AttributeDefinitions:
-        - AttributeName: email
-          AttributeType: S
+      TableName: users
       KeySchema:
         - AttributeName: email
           KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: email
+          AttributeType: S
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5
 
-  BooksDynamoDbTable:
+# books table creation
+  BooksDynamoDBTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: "books"
-      AttributeDefinitions:
-        - AttributeName: id
-          AttributeType: S
+      TableName: books
       KeySchema:
         - AttributeName: id
           KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5
 
-  MyLambdaFunction:
-    Type: AWS::Lambda::Function
+#---------------------------------------Lambda Functions (Compute)--------------------------------------
+#lambda to perform CRUD operations
+  LambdaBackend:
+    Type: 'AWS::Lambda::Function'
     Properties:
-      Handler: "index.handler"
-      Role: "arn:aws:iam::448001105130:role/LabRole"
+      FunctionName: 'LambdaBackend'
+      Handler: 'index.handler'
+      Role: 'arn:aws:iam::448001105130:role/LabRole'
       Code:
-        S3Bucket: "login-b00917801"
-        S3Key: "login.zip"
-      Runtime: "nodejs14.x"
-      Timeout: 25
-      MemorySize: 128
+        S3Bucket: "b00917801"
+        S3Key: "LambdaBackend.zip"
+      Runtime: 'nodejs14.x'
+      Environment:
+        Variables:
+          USER_TABLE_NAME: !Ref UserDynamoDBTable
+          BOOK_TABLE_NAME: !Ref BooksDynamoDBTable
+          SAVE_BOOK_QUEUE_URL: 
+            Fn::Sub: "${SaveBookQueue}"
+          DELETE_BOOK_QUEUE_URL: 
+            Fn::Sub: "${DeleteBookQueue}"
+    DependsOn:
+      - SaveBookQueue
+      - DeleteBookQueue
+      - UserDynamoDBTable
+      - BooksDynamoDBTable
 
-  RestApi:
-    Type: 'AWS::ApiGateway::RestApi'
+#lambda function to give notification
+  LambdaNotification:
+    Type: 'AWS::Lambda::Function'
     Properties:
-      Name: book-avengers-gateway
-      Description: Backend API Gateway
-      EndpointConfiguration:
-        Types:
-          - REGIONAL
+      FunctionName: 'LambdaNotification'
+      Handler: 'index.handler'
+      Role: 'arn:aws:iam::448001105130:role/LabRole'
+      Code:
+        S3Bucket: "b00917801"
+        S3Key: "LambdaNotification.zip"
+      Runtime: 'nodejs14.x'
+      Environment:
+        Variables:
+          NotificationSNSArn: !Ref NotificationSNS
+    DependsOn:
+      - SaveBookQueue
+      - DeleteBookQueue
+      - NotificationSNS
 
-  HealthResource:
-    Type: 'AWS::ApiGateway::Resource'
+#---------------------------------------SQS (General)--------------------------------------
+#Queue to save book
+  SaveBookQueue:
+    Type: 'AWS::SQS::Queue'
     Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !GetAtt RestApi.RootResourceId
-      PathPart: health
+      QueueName: 'SaveBookQueue'
 
-  HealthOptionsMethod:
-    Type: 'AWS::ApiGateway::Method'
+#Queue to delete book
+  DeleteBookQueue:
+    Type: 'AWS::SQS::Queue'
     Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref HealthResource
-      HttpMethod: OPTIONS
-      AuthorizationType: NONE
-      Integration:
-        Type: MOCK
-        IntegrationResponses: 
-          - StatusCode: 200
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-            ResponseTemplates:
-              application/json: ''
-        PassthroughBehavior: WHEN_NO_MATCH
-        RequestTemplates:
-          application/json: '{"statusCode": 200}'
-      MethodResponses:
-        - StatusCode: 200
-          ResponseModels:
-            application/json: 'Empty'
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Origin: true
+      QueueName: 'DeleteBookQueue'
 
-  HealthGetMethod:
-    Type: 'AWS::ApiGateway::Method'
+#Trigger LambdaNotification by save queue
+  LambdaNotificationSaveBookQueueTrigger:
+    Type: AWS::Lambda::EventSourceMapping
     Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref HealthResource
-      HttpMethod: GET
-      AuthorizationType: NONE
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        Uri: 
-          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MyLambdaFunction.Arn}/invocations
-        IntegrationResponses: 
-          - StatusCode: 200
-            ResponseTemplates:
-              application/json: ''
-        PassthroughBehavior: WHEN_NO_MATCH
-      MethodResponses:
-        - StatusCode: 200
+      EventSourceArn: !GetAtt SaveBookQueue.Arn
+      FunctionName: !GetAtt LambdaNotification.Arn
+      Enabled: true
+      BatchSize: 1
 
+#Trigger LambdaNotification by delete queue
+  LambdaNotificationDeleteBookQueueTrigger:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt DeleteBookQueue.Arn
+      FunctionName: !GetAtt LambdaNotification.Arn
+      Enabled: true
+      BatchSize: 1
+
+#---------------------------------------SNS (General)--------------------------------------
+#SNS lambda notification to administrator
+  NotificationSNS:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      TopicName: 'NotificationSNS'
+      Subscription:
+        - Protocol: 'email'
+          Endpoint: 'pandeymayank015@gmail.com'
+
+#---------------------------------------API Gateway (Network)--------------------------------------
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: bookavengersAPI
+  
+  LambdaBackendPermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: !Ref LambdaBackend
+      Action: "lambda:InvokeFunction"
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/*"
+
+#Login resource created
   LoginResource:
-    Type: 'AWS::ApiGateway::Resource'
+    Type: AWS::ApiGateway::Resource
     Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !GetAtt RestApi.RootResourceId
-      PathPart: login
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: "login"
 
   LoginOptionsMethod:
-    Type: 'AWS::ApiGateway::Method'
+    Type: AWS::ApiGateway::Method
     Properties:
-      RestApiId: !Ref RestApi
+      AuthorizationType: NONE
+      RestApiId: !Ref ApiGateway
       ResourceId: !Ref LoginResource
       HttpMethod: OPTIONS
-      AuthorizationType: NONE
       Integration:
-        Type: MOCK
-        IntegrationResponses: 
+        IntegrationResponses:
           - StatusCode: 200
             ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE'"
+              "method.response.header.Access-Control-Allow-Origin": "'*'"
             ResponseTemplates:
-              application/json: ''
+              "application/json": ""
         PassthroughBehavior: WHEN_NO_MATCH
         RequestTemplates:
-          application/json: '{"statusCode": 200}'
+          "application/json": '{"statusCode": 200}'
+        Type: MOCK
       MethodResponses:
         - StatusCode: 200
-          ResponseModels:
-            application/json: 'Empty'
           ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Origin: true
+            "method.response.header.Access-Control-Allow-Headers": true
+            "method.response.header.Access-Control-Allow-Methods": true
+            "method.response.header.Access-Control-Allow-Origin": true
+          ResponseModels:
+            "application/json": "Empty"
 
-  LoginPostMethod:
-    Type: 'AWS::ApiGateway::Method'
+  LoginMethod:
+    Type: "AWS::ApiGateway::Method"
     Properties:
-      RestApiId: !Ref RestApi
+      RestApiId: !Ref ApiGateway
       ResourceId: !Ref LoginResource
-      HttpMethod: POST
       AuthorizationType: NONE
+      HttpMethod: POST
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: 
-          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MyLambdaFunction.Arn}/invocations
-        IntegrationResponses: 
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaBackend.Arn}/invocations"
+        IntegrationResponses:
           - StatusCode: 200
             ResponseTemplates:
-              application/json: ''
-        PassthroughBehavior: WHEN_NO_MATCH
+              application/json: $input.json('$')
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+        RequestTemplates:
+          application/json: $input.json('$')
+      RequestParameters:
+        method.request.querystring.name: false
       MethodResponses:
-        - StatusCode: 200
+        - ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+          StatusCode: "200"
 
+#Register resource created
   RegisterResource:
-    Type: 'AWS::ApiGateway::Resource'
+    Type: AWS::ApiGateway::Resource
     Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !GetAtt RestApi.RootResourceId
-      PathPart: register
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: "register"
 
   RegisterOptionsMethod:
-    Type: 'AWS::ApiGateway::Method'
+    Type: AWS::ApiGateway::Method
     Properties:
-      RestApiId: !Ref RestApi
+      AuthorizationType: NONE
+      RestApiId: !Ref ApiGateway
       ResourceId: !Ref RegisterResource
       HttpMethod: OPTIONS
-      AuthorizationType: NONE
       Integration:
-        Type: MOCK
-        IntegrationResponses: 
+        IntegrationResponses:
           - StatusCode: 200
             ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE'"
+              "method.response.header.Access-Control-Allow-Origin": "'*'"
             ResponseTemplates:
-              application/json: ''
+              "application/json": ""
         PassthroughBehavior: WHEN_NO_MATCH
         RequestTemplates:
-          application/json: '{"statusCode": 200}'
+          "application/json": '{"statusCode": 200}'
+        Type: MOCK
       MethodResponses:
         - StatusCode: 200
-          ResponseModels:
-            application/json: 'Empty'
           ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Origin: true
+            "method.response.header.Access-Control-Allow-Headers": true
+            "method.response.header.Access-Control-Allow-Methods": true
+            "method.response.header.Access-Control-Allow-Origin": true
+          ResponseModels:
+            "application/json": "Empty"
 
-  RegisterPostMethod:
-    Type: 'AWS::ApiGateway::Method'
+  RegisterMethod:
+    Type: "AWS::ApiGateway::Method"
     Properties:
-      RestApiId: !Ref RestApi
+      RestApiId: !Ref ApiGateway
       ResourceId: !Ref RegisterResource
-      HttpMethod: POST
       AuthorizationType: NONE
+      HttpMethod: POST
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: 
-          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MyLambdaFunction.Arn}/invocations
-        IntegrationResponses: 
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaBackend.Arn}/invocations"
+        IntegrationResponses:
           - StatusCode: 200
             ResponseTemplates:
-              application/json: ''
-        PassthroughBehavior: WHEN_NO_MATCH
-      MethodResponses:
-        - StatusCode: 200
-
-  VerifyResource:
-    Type: 'AWS::ApiGateway::Resource'
-    Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !GetAtt RestApi.RootResourceId
-      PathPart: verify
-
-  VerifyOptionsMethod:
-    Type: 'AWS::ApiGateway::Method'
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref VerifyResource
-      HttpMethod: OPTIONS
-      AuthorizationType: NONE
-      Integration:
-        Type: MOCK
-        IntegrationResponses: 
-          - StatusCode: 200
+              application/json: $input.json('$')
             ResponseParameters:
               method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               method.response.header.Access-Control-Allow-Origin: "'*'"
-            ResponseTemplates:
-              application/json: ''
-        PassthroughBehavior: WHEN_NO_MATCH
         RequestTemplates:
-          application/json: '{"statusCode": 200}'
+          application/json: $input.json('$')
+      RequestParameters:
+        method.request.querystring.name: false
       MethodResponses:
-        - StatusCode: 200
-          ResponseModels:
-            application/json: 'Empty'
-          ResponseParameters:
+        - ResponseParameters:
             method.response.header.Access-Control-Allow-Headers: true
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
+          StatusCode: "200"
 
-  VerifyPostMethod:
-    Type: 'AWS::ApiGateway::Method'
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref VerifyResource
-      HttpMethod: POST
-      AuthorizationType: NONE
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        Uri: 
-          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MyLambdaFunction.Arn}/invocations
-        IntegrationResponses: 
-          - StatusCode: 200
-            ResponseTemplates:
-              application/json: ''
-        PassthroughBehavior: WHEN_NO_MATCH
-      MethodResponses:
-        - StatusCode: 200
-
+#Book resource created
   BooksResource:
-    Type: 'AWS::ApiGateway::Resource'
+    Type: AWS::ApiGateway::Resource
     Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !GetAtt RestApi.RootResourceId
-      PathPart: books
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: "books"
 
   BooksOptionsMethod:
-    Type: 'AWS::ApiGateway::Method'
+    Type: AWS::ApiGateway::Method
     Properties:
-      RestApiId: !Ref RestApi
+      AuthorizationType: NONE
+      RestApiId: !Ref ApiGateway
       ResourceId: !Ref BooksResource
       HttpMethod: OPTIONS
-      AuthorizationType: NONE
       Integration:
-        Type: MOCK
-        IntegrationResponses: 
+        IntegrationResponses:
           - StatusCode: 200
             ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE'"
+              "method.response.header.Access-Control-Allow-Origin": "'*'"
             ResponseTemplates:
-              application/json: ''
+              "application/json": ""
         PassthroughBehavior: WHEN_NO_MATCH
         RequestTemplates:
-          application/json: '{"statusCode": 200}'
+          "application/json": '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            "method.response.header.Access-Control-Allow-Headers": true
+            "method.response.header.Access-Control-Allow-Methods": true
+            "method.response.header.Access-Control-Allow-Origin": true
+          ResponseModels:
+            "application/json": "Empty"
+
+  BooksMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref BooksResource
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaBackend.Arn}/invocations"
       MethodResponses:
         - StatusCode: 200
           ResponseModels:
-            application/json: 'Empty'
+            "application/json": "Empty"
           ResponseParameters:
             method.response.header.Access-Control-Allow-Headers: true
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
-  BooksGetMethod:
-    Type: 'AWS::ApiGateway::Method'
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref BooksResource
-      HttpMethod: GET
-      AuthorizationType: NONE
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        Uri: 
-          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MyLambdaFunction.Arn}/invocations
-        IntegrationResponses: 
-          - StatusCode: 200
-            ResponseTemplates:
-              application/json: ''
-        PassthroughBehavior: WHEN_NO_MATCH
-      MethodResponses:
-        - StatusCode: 200
-
+#Book resource created
   BookResource:
-    Type: 'AWS::ApiGateway::Resource'
+    Type: AWS::ApiGateway::Resource
     Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !GetAtt RestApi.RootResourceId
-      PathPart: book
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: "book"
 
   BookOptionsMethod:
-    Type: 'AWS::ApiGateway::Method'
+    Type: AWS::ApiGateway::Method
     Properties:
-      RestApiId: !Ref RestApi
+      AuthorizationType: NONE
+      RestApiId: !Ref ApiGateway
       ResourceId: !Ref BookResource
       HttpMethod: OPTIONS
-      AuthorizationType: NONE
       Integration:
-        Type: MOCK
-        IntegrationResponses: 
+        IntegrationResponses:
           - StatusCode: 200
             ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'POST,PATCH,DELETE,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE,PATCH'"
+              "method.response.header.Access-Control-Allow-Origin": "'*'"
             ResponseTemplates:
-              application/json: ''
+              "application/json": ""
         PassthroughBehavior: WHEN_NO_MATCH
         RequestTemplates:
-          application/json: '{"statusCode": 200}'
+          "application/json": '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            "method.response.header.Access-Control-Allow-Headers": true
+            "method.response.header.Access-Control-Allow-Methods": true
+            "method.response.header.Access-Control-Allow-Origin": true
+          ResponseModels:
+            "application/json": "Empty"
+
+#Get book created
+  GetBookMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref BookResource
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaBackend.Arn}/invocations"
       MethodResponses:
         - StatusCode: 200
           ResponseModels:
-            application/json: 'Empty'
+            "application/json": "Empty"
           ResponseParameters:
             method.response.header.Access-Control-Allow-Headers: true
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
-  BookPostMethod:
-    Type: 'AWS::ApiGateway::Method'
+# Post book created
+  PostBookMethod:
+    Type: "AWS::ApiGateway::Method"
     Properties:
-      RestApiId: !Ref RestApi
+      RestApiId: !Ref ApiGateway
       ResourceId: !Ref BookResource
+      AuthorizationType: NONE
       HttpMethod: POST
-      AuthorizationType: NONE
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: 
-          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MyLambdaFunction.Arn}/invocations
-        IntegrationResponses: 
-          - StatusCode: 200
-            ResponseTemplates:
-              application/json: ''
-        PassthroughBehavior: WHEN_NO_MATCH
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaBackend.Arn}/invocations"
       MethodResponses:
         - StatusCode: 200
+          ResponseModels:
+            "application/json": "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
 
-  BookPatchMethod:
-    Type: 'AWS::ApiGateway::Method'
+# Delete book created
+  DeleteBookMethod:
+    Type: "AWS::ApiGateway::Method"
     Properties:
-      RestApiId: !Ref RestApi
+      RestApiId: !Ref ApiGateway
       ResourceId: !Ref BookResource
-      HttpMethod: PATCH
       AuthorizationType: NONE
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        Uri: 
-          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MyLambdaFunction.Arn}/invocations
-        IntegrationResponses: 
-          - StatusCode: 200
-            ResponseTemplates:
-              application/json: ''
-        PassthroughBehavior: WHEN_NO_MATCH
-      MethodResponses:
-        - StatusCode: 200
-
-  BookDeleteMethod:
-    Type: 'AWS::ApiGateway::Method'
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref BookResource
       HttpMethod: DELETE
-      AuthorizationType: NONE
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: 
-          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MyLambdaFunction.Arn}/invocations
-        IntegrationResponses: 
-          - StatusCode: 200
-            ResponseTemplates:
-              application/json: ''
-        PassthroughBehavior: WHEN_NO_MATCH
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaBackend.Arn}/invocations"
       MethodResponses:
         - StatusCode: 200
+          ResponseModels:
+            "application/json": "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
 
-  Deployment:
-    DependsOn:
-      - HealthGetMethod
-      - HealthOptionsMethod
-      - LoginPostMethod
-      - LoginOptionsMethod
-      - RegisterPostMethod
-      - RegisterOptionsMethod
-      - VerifyPostMethod
-      - VerifyOptionsMethod
-      - BooksGetMethod
-      - BooksOptionsMethod
-      - BookPostMethod
-      - BookOptionsMethod
-      - BookPatchMethod
-      - BookDeleteMethod
-    Type: 'AWS::ApiGateway::Deployment'
+# Update book creates
+  PatchBookMethod:
+    Type: "AWS::ApiGateway::Method"
     Properties:
-      RestApiId: !Ref RestApi
-      StageName: prod1
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref BookResource
+      AuthorizationType: NONE
+      HttpMethod: PATCH
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaBackend.Arn}/invocations"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            "application/json": "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+# Deploying API 
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - LoginMethod
+      - RegisterMethod
+      - BooksMethod
+      - GetBookMethod
+      - PostBookMethod
+      - DeleteBookMethod
+      - PatchBookMethod
+
+    Properties:
+      RestApiId: !Ref ApiGateway
+
+  ApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref ApiGateway
+      DeploymentId: !Ref ApiDeployment
+      StageName: prod
+      Description: Production Stage
+
+#---------------------------------------Elastic Beanstalk (Compute)--------------------------------------
+# Deploying frontend on elastic beanstalk
+  BooksFrontendApplication:
+    Type: "AWS::ElasticBeanstalk::Application"
+    Properties:
+      Description: "Elastic Beanstalk Application for the Frontend"
+      ApplicationName: "BooksDistribution"
+
+  BooksFrontendAppVersion:
+    Type: "AWS::ElasticBeanstalk::ApplicationVersion"
+    Properties:
+      ApplicationName: !Ref BooksFrontendApplication
+      Description: "Application Version of the Frontend App"
+      SourceBundle:
+        S3Bucket: "b00917801"
+        S3Key: "Archive.zip"
+
+  BooksFrontendAppConfigTemplate:
+    Type: "AWS::ElasticBeanstalk::ConfigurationTemplate"
+    Properties:
+      ApplicationName: !Ref BooksFrontendApplication
+      Description: "Configuration Template for the Frontend App"
+      SolutionStackName: "64bit Amazon Linux 2 v5.8.4 running Node.js 18"
+      OptionSettings:
+        - Namespace: "aws:autoscaling:launchconfiguration"
+          OptionName: "InstanceType"
+          Value: "t3.micro"
+        - Namespace: "aws:elasticbeanstalk:environment:proxy"
+          OptionName: "ProxyServer"
+          Value: "nginx"
+        - Namespace: "aws:autoscaling:launchconfiguration"
+          OptionName: "IamInstanceProfile"
+          Value: "LabInstanceProfile"
+        - Namespace: "aws:elasticbeanstalk:environment"
+          OptionName: "ServiceRole"
+          Value: "arn:aws:iam::448001105130:role/LabRole"
+        - Namespace: "aws:elasticbeanstalk:application:environment"
+          OptionName: "REACT_APP_API_ENDPOINT"
+          Value: 
+            Fn::Sub: "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com"
+
+  BooksFrontendAppEnvironment:
+    Type: "AWS::ElasticBeanstalk::Environment"
+    Properties:
+      ApplicationName: !Ref BooksFrontendApplication
+      EnvironmentName: "BooksFrontendEnv"
+      TemplateName: !Ref BooksFrontendAppConfigTemplate
+      VersionLabel: !Ref BooksFrontendAppVersion
+
+# Getting output of API and EB
+Outputs:
+  APIGatewayURL:
+    Description: "API Gateway URL"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod"
+  ApplicationURL:
+    Description: "URL of the Elastic Beanstalk Frontend application"
+    Value:
+      Fn::Join:
+        - ""
+        - - "http://"
+          - Fn::GetAtt: [BooksFrontendAppEnvironment, EndpointURL]
