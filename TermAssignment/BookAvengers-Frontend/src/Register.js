@@ -12,7 +12,6 @@ const Register = () => {
     const [password, setPassword] = useState('');
 
     const handleRegister = async () => {
-        // Perform validation on name, email, and password fields
         if (!name || !email || !password) {
             alert('All fields are required.');
             return;
@@ -33,11 +32,9 @@ const Register = () => {
             );
 
             if (response.status === 200) {
-                // Registration successful
                 alert(`Registration successful for user with email: ${email}`);
                 sessionStorage.setItem('user', JSON.stringify({ email }));
             } else {
-                // Registration failed
                 alert(response.data.message);
                 console.log("env variable:",`${process.env.REACT_APP_API_ENDPOINT}`);
             }

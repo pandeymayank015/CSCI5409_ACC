@@ -18,7 +18,6 @@ const PremiumContent = (props) => {
     const email = JSON.parse(sessionStorage.getItem('user'))?.email || '';
     
     useEffect(() => {
-        // Store the email in sessionStorage when the component mounts
         sessionStorage.setItem('email', email);
     }, []);
     const [books, setBooks] = useState([]);
@@ -60,10 +59,9 @@ const PremiumContent = (props) => {
               );
 
             if (response.status === 200) {
-                // Book addition successful
                 setNewBook('');
                 setBooks((prevBooks) => [...prevBooks, response.data.Item]);
-                fetchBooks(); // Refresh books after successful addition
+                fetchBooks();
             } else {
                 console.error('Error adding book:', error);
             }
@@ -94,7 +92,7 @@ const PremiumContent = (props) => {
             );
             setSelectedBook('');
             setBookStatus('');
-            fetchBooks(); // Refresh books after successful status update
+            fetchBooks();
         } catch (error) {
             console.error('Error updating book status:', error);
         }
@@ -111,7 +109,6 @@ const PremiumContent = (props) => {
                 }
               );
           
-          // Book deletion successful
           setBooks(prevBooks => prevBooks.filter(book => book.id !== bookId));
         } catch (error) {
           console.error('Error deleting book:', error);

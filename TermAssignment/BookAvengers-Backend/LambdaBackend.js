@@ -141,11 +141,10 @@ async function saveBook(requestBody) {
 
     await dynamodb.put(params).promise();
 
-    // Send message to the SQS save queue
     const sqsParams = {
       MessageBody: JSON.stringify({
         operation: 'save',
-        email: requestBody.userEmail,  // assuming userEmail is part of the request body
+        email: requestBody.userEmail,
         book: book
       }),
       QueueUrl: `${process.env.SAVE_BOOK_QUEUE_URL}`,
@@ -199,7 +198,6 @@ async function modifyBook(id, updateKey, updateValue) {
 
 async function deleteBook(id, userEmail) {
   try {
-    // First, retrieve the book from the DynamoDB
     const paramsGet = {
       TableName: dynamodbTableName,
       Key: {
@@ -214,7 +212,6 @@ async function deleteBook(id, userEmail) {
       return buildResponse(404, { message: 'Book not found.' });
     }
 
-    // Then, delete the book from the DynamoDB
     const paramsDelete = {
       TableName: dynamodbTableName,
       Key: {
@@ -225,13 +222,12 @@ async function deleteBook(id, userEmail) {
 
     const responseDelete = await dynamodb.delete(paramsDelete).promise();
 
-    // Send message to the SQS delete queue
     const sqsParams = {
       MessageBody: JSON.stringify({
         operation: 'delete',
         email: userEmail,
         bookId: id,
-        bookName: book.name, // Add the book name here
+        bookName: book.name, 
       }),
       QueueUrl: `${process.env.DELETE_BOOK_QUEUE_URL}`,
     };
@@ -250,10 +246,6 @@ async function deleteBook(id, userEmail) {
     return buildResponse(500, { message: 'An error occurred while deleting the book.' });
   }
 }
-
-
-
-// Rest of the code
 
 async function fetchBookById(id) {
   const params = {
@@ -285,10 +277,6 @@ const generateUniqueId = () => {
   const randomPart = Math.random().toString(36).substring(2, 8);
   return timestamp + randomPart;
 };
-
-
-
-
 
 exports.handler = async (event) => {
   console.log('Request Event: ', event);

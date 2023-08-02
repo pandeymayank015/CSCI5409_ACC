@@ -11,7 +11,6 @@ const Login = (props) => {
     const [password, setPassword] = useState('');
 
     const handleLogin = async () => {
-        // Perform validation on email and password fields
         if (!email || !password) {
             alert('Username or password is required.');
             return;
@@ -24,11 +23,9 @@ const Login = (props) => {
             );
 
             if (response.status === 200) {
-                // Login successful
                 sessionStorage.setItem('user', JSON.stringify({ email }));
                 props.history.push('/premium-content');
             } else {
-                // Login failed
                 alert(response.data.message);
             }
         } catch (error) {
