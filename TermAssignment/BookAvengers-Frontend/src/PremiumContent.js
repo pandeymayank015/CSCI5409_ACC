@@ -40,7 +40,7 @@ const PremiumContent = (props) => {
       
       useEffect(() => {
         fetchBooks();
-      }, []); // Empty dependency array to run the effect only once
+      }, []);
 
 
     const handleAddBook = async () => {
@@ -65,11 +65,10 @@ const PremiumContent = (props) => {
                 setBooks((prevBooks) => [...prevBooks, response.data.Item]);
                 fetchBooks(); // Refresh books after successful addition
             } else {
-                // Handle error if necessary
+                console.error('Error adding book:', error);
             }
         } catch (error) {
             console.error('Error adding book:', error);
-            // Handle error if necessary
         }
     };
 
@@ -116,7 +115,6 @@ const PremiumContent = (props) => {
           setBooks(prevBooks => prevBooks.filter(book => book.id !== bookId));
         } catch (error) {
           console.error('Error deleting book:', error);
-          // Handle error if necessary
         }
       };
 
